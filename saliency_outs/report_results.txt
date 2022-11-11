@@ -1,0 +1,36 @@
+Number of correct predictions is 	 138 / 277 
+ Number of incorrect predictions is 	 139 / 277 
+Class 0 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 1 has been predicted correctly in 108 samples out of which there are 102 samples that the model has had similar highlights with human and for 6 samples model predicted correctly based on incorrect highlights 
+Class 2 has been predicted correctly in 4 samples out of which there are 4 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 3 has been predicted correctly in 17 samples out of which there are 17 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 4 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 5 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 6 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 7 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 8 has been predicted correctly in 9 samples out of which there are 9 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+Class 9 has been predicted correctly in 0 samples out of which there are 0 samples that the model has had similar highlights with human and for 0 samples model predicted correctly based on incorrect highlights 
+
+
+*************************************************
+
+In incorrectly predicted classes; 
+Only 2 classes (1 and 8) were incorrectly predicted and had a non-zero NCC with another heatmap, the rest NCCs are zero 
+	 Saliency of the wrong class 1 has the highest NCC=.58 with gaze heatmaps of class 3 
+	 Saliency of the wrong class 8 has the highest NCC=.32 with gaze heatmaps of class 0 
+*************************************************
+
+In Correctly predicted classes; 
+Mean NCC between saliency and heatmap class 0=0.000000 
+Mean NCC between saliency and heatmap class 1=0.067438 
+Mean NCC between saliency and heatmap class 2=0.143551 
+Mean NCC between saliency and heatmap class 3=0.034757 
+Mean NCC between saliency and heatmap class 4=0.000000 
+Mean NCC between saliency and heatmap class 5=0.000000 
+Mean NCC between saliency and heatmap class 6=0.000000 
+Mean NCC between saliency and heatmap class 7=0.000000 
+Mean NCC between saliency and heatmap class 8=0.319823 
+Mean NCC between saliency and heatmap class 9=0.000000 
+*************************************************
+
+The 10 highest NCCs have been observed in samples: [42, 235, 264, 27, 127, 172, 241, 142, 182, 156]
