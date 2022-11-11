@@ -62,4 +62,5 @@ class Outputs():
     
     # save the weights of a model
     def save_models(self, net_d, suffix):
+        print('{:}/state_dict_d_'.format(self.output_folder) + str(suffix))
         torch.save(net_d.state_dict(), '{:}/state_dict_d_'.format(self.output_folder) + str(suffix)) 

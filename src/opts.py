@@ -4,6 +4,7 @@ import time
 from random import randint
 import os
 import socket
+from xmlrpc.client import Boolean
 import numpy as np
 thresholds = [0,0.001,0.01, 0.025,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5,0.55,0.6,0.65,0.7,0.75,0.8,0.85,0.9,0.95, 0.975, 0.99, 0.999]
 
@@ -57,7 +58,7 @@ def get_opt():
                                 help='If True, data augmentation is used during training.')
     parser.add_argument('--optimizer', type=str, nargs='?', default='adamams',
                                 help='adamw or adamams, to choos the tye of optimizer.')
-    parser.add_argument('--batch_size', type=int, nargs='?', default=20,
+    parser.add_argument('--batch_size', type=int, nargs='?', default=32, #*20
                                 help='Batch size for training and validation.')
     parser.add_argument('--num_workers', type=int, nargs='?', default=5,
                                 help='Number of threads created for faster data loading.')
@@ -99,7 +100,13 @@ def get_opt():
                             help='If true, pytorch\'s automatic mixed precison is used for training')
     parser.add_argument('--dataset_type_et', type=str, nargs='?', default='h5',
                             help='Type of file to save preprocessed dataset to. Options: h5, zarr, png, mmap')
-    
+    parser.add_argument('--save_path', type=str, nargs='?', default='/home/sci/elham/workspace/etl/ckpts/',
+                            help='path to save the best and last checkpoints')
+    parser.add_argument('--get_saliency', type=str, nargs='?', default=None,
+                            help='if we want saliency map')
+    parser.add_argument('--reprod_saliency_results', type=Boolean, nargs='?', default=False,
+                            help='if we want to reproduce results')
+
     args = parser.parse_args()
     
     # if only one threshold for the eye-tracking heatmaps was given, make it the same threshold for all labels

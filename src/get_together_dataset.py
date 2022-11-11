@@ -2,10 +2,10 @@
 import torch
 from torch.utils.data import Dataset
 import numpy as np
-from .utils_dataset import return_dataloaders, IteratorLoaderDifferentSizesSameBatch
+from utils_dataset import return_dataloaders, IteratorLoaderDifferentSizesSameBatch
 import math
-from .eyetracking_dataset import get_dataset_et
-from .mimic_dataset import get_dataset as get_dataset_mimic
+from eyetracking_dataset import get_dataset_et
+from mimic_dataset import get_dataset as get_dataset_mimic
 
 # class used to put annotated dataset and unannotated dataset in the same dataset.
 # The outputs of the __getitem__ function have to be standardized in content, indexing and size, leading to a return with 4 elements:
@@ -136,7 +136,7 @@ def get_together_dataset(split, type_, use_et, batch_size, crop, use_data_aug, n
     # In that case, get_dataset_split=='train' and original_split=='val'
     get_dataset_split = 'train' if original_split=='trainval' else original_split
     
-    annotated_part = get_dataset_et(get_dataset_split, data_aug_seed, grid_size=grid_size, use_et = use_et, use_data_aug = use_data_aug, crop = crop, load_to_memory = load_to_memory, dataset_type = dataset_type_et)
+    annotated_part = get_dataset_et(get_dataset_split, data_aug_seed, grid_size=grid_size, use_et=use_et, use_data_aug=use_data_aug, crop=crop, load_to_memory=load_to_memory, dataset_type=dataset_type_et)
     unannotated_part = get_dataset_mimic(get_dataset_split, data_aug_seed, use_data_aug = use_data_aug, crop = crop)
     if original_split=='train':
         annotated_part = ReduceDataset(annotated_part, percentage_annotated)

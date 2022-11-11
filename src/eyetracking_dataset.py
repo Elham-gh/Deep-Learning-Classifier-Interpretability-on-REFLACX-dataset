@@ -1,13 +1,13 @@
 # file defining all data processing applied to the eye-tracking dataset
 import torchvision.transforms as transforms
 import torch
-from .utils_dataset import TransformsDataset, SeedingPytorchTransformSeveralElements, GrayToThree, ResizeHeatmap, ToTensorMine, XRayResizerPadRound32, ToNumpy, ToTensor1, get_count_positive_labels
-from h5_dataset.h5_dataset import H5Dataset, H5ProcessingFunction, H5ComposeFunction, change_np_type_fn, PNGDataset, MMapDataset, ZarrDataset, PackBitArray, UnpackBitArray
-from .eyetracking_object import ETDataset
+from utils_dataset import TransformsDataset, SeedingPytorchTransformSeveralElements, GrayToThree, ResizeHeatmap, ToTensorMine, XRayResizerPadRound32, ToNumpy, ToTensor1, get_count_positive_labels
+from hdf5_library.h5_dataset.h5_dataset import H5Dataset, H5ProcessingFunction, H5ComposeFunction, change_np_type_fn, PNGDataset, MMapDataset, ZarrDataset, PackBitArray, UnpackBitArray
+from eyetracking_object import ETDataset
 import pandas as pd
 import numpy as np
-from .global_paths import h5_path
-from .list_labels import list_labels
+from global_paths import h5_path
+from list_labels import list_labels
 
 normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                  std=[0.229, 0.224, 0.225])
@@ -98,7 +98,7 @@ def get_h5_dataset(filename, individual_datasets, class_eyetracking_dataset, loa
     # the type is converted to bool and the array is packed into bit. The packing into bits is necessary for
     # the use of only a single bit per pixel, since arrays of type bool are not efficient and use 8 bits per pixel
     return TransformsDataset(TransformsDataset(
-        class_eyetracking_dataset(path = h5_path, 
+        class_eyetracking_dataset(path=h5_path, 
             filename = filename,
             fn_create_dataset = fn_create_dataset, 
             individual_datasets = individual_datasets,
@@ -123,14 +123,25 @@ def get_dataset_et(split, data_aug_seed, grid_size=8, use_et = True, use_data_au
     elif dataset_type == 'png':
         # the class PNGDataset needs inidividual datasets
         individual_datasets = True
+
     if split == 'test':
-        imageset = TransformsDataset(TransformsDataset(get_h5_dataset('test_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, load_to_memory, lambda: ETDataset('test',3, pre_transform_train)),
-            [normalize], indices_to_transform= 0), [ResizeHeatmap(grid_size)], indices_to_transform = 2)
+        imageset = TransformsDataset(TransformsDataset(get_h5_dataset('test_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, 
+            load_to_memory, lambda: ETDataset('test',3, pre_transform_train)), [normalize], indices_to_transform= 0), [ResizeHeatmap(grid_size)], indices_to_transform = 2)
+
     if split == 'val':
-        imageset = TransformsDataset(TransformsDataset(get_h5_dataset('val_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, load_to_memory, lambda: ETDataset('val',3, pre_transform_train)),
-            [normalize], indices_to_transform = 0), [ResizeHeatmap(grid_size)], indices_to_transform = 2)
+        import opts
+        opt = opts.get_opt()
+        if opt.get_saliency:
+            imageset = TransformsDataset(TransformsDataset(get_h5_dataset('val_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, 
+                load_to_memory, lambda: ETDataset('val',3, pre_transform_train)), [normalize], indices_to_transform = 0), [ResizeHeatmap(512)], indices_to_transform = 2)            
+        else:
+            imageset = TransformsDataset(TransformsDataset(get_h5_dataset('val_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, 
+                load_to_memory, lambda: ETDataset('val',3, pre_transform_train)), [normalize], indices_to_transform = 0), [ResizeHeatmap(grid_size)], indices_to_transform = 2)
+
     if split == 'train':
-        imageset = get_h5_dataset('train_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, load_to_memory, lambda: ETDataset('train',3, pre_transform_train))
+        imageset = get_h5_dataset('train_joint_dataset_et_3_noseg_optimized',individual_datasets, class_eyetracking_dataset, 
+            load_to_memory, lambda: ETDataset('train',3, pre_transform_train))
+
         if not use_data_aug:
             imageset = TransformsDataset(TransformsDataset(imageset, [normalize], indices_to_transform = 0), [ResizeHeatmap(grid_size)], indices_to_transform = 2)
             if not use_et:

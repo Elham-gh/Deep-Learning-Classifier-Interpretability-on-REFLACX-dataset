@@ -1,21 +1,28 @@
 # script called for training and validating the proposed method
 import torch
 torch.backends.cudnn.benchmark = True
-from . import model
-from . import output as outputs
-from . import metrics
-from . import opts
-from . import gradcam
+import models
+import output as outputs
+import metrics
+import opts
+import gradcam 
 import torchvision
 import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import contextlib
+import numpy as np
+from saliency import get_highlight, saliency_IoU, saliency_ncc, report_saliency_results
 
 torch.autograd.set_detect_anomaly(False)
 torch.autograd.profiler.profile(False)
 torch.autograd.profiler.emit_nvtx(False)
+
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 def init_optimizer(net_d, opt):
     if opt.optimizer == 'adamw':
@@ -53,56 +60,97 @@ class TrainingLoop():
         
         #defining how to calculate the loss and the image-level labels from the grid
         if self.opt.loss == 'ce': #loss only used for the unannotated model, simply using cross-entropy over the average-pooling of the grid
-            self.loss_fn = model.loss_ce(opt.threshold_box_label, opt.weight_loss_annotated, self.normalize_fn, opt.use_grid_balancing_loss)
-            self.forward = model.forward_inference_ce
+            self.loss_fn = models.loss_ce(opt.threshold_box_label, opt.weight_loss_annotated, self.normalize_fn, opt.use_grid_balancing_loss)
+            self.forward = models.forward_inference_ce
         elif self.opt.loss == 'li': #loss as defined in the paper, as proposed by li et al.
-            self.loss_fn = model.loss_fn_li(opt.threshold_box_label, opt.weight_loss_annotated, self.normalize_fn, opt.use_grid_balancing_loss)
-            self.forward = model.forward_inference
+            self.loss_fn = models.loss_fn_li(opt.threshold_box_label, opt.weight_loss_annotated, self.normalize_fn, opt.use_grid_balancing_loss)
+            self.forward = models.forward_inference
         
     #method that iterates through all epochs through all batches for training and validation sets
     def train(self, train_dataloader, val_dataloader_ann, val_dataloader_all, net_d, optim_d, lr_scheduler_d):
-        
+
         last_best_validation_metric = self.opt.initialization_comparison
         
-        for epoch_index in range(self.opt.nepochs):
+        for epoch_index in range(self.opt.nepochs): # Z:\workspace\etl\src\runs\et_data_model_20221103-115527-7267\state_dict_d_0            
             self.metric.start_time('epoch')
+            '''
             if not self.opt.skip_train:
                 self.metric.start_time('train')
+                
                 net_d.train()
+                print('Epoch %d' %epoch_index)
                 for batch_index, batch_example in enumerate(train_dataloader):
                     if batch_index%100==0:
-                        print(batch_index)
+                        print('batch %d/%d' %(batch_index, len(train_dataloader)))
                     image, label, contain_box, boxes  = batch_example
                     image = image.cuda()
                     label = label.cuda()
                     contain_box = contain_box.cuda()
                     boxes = boxes.cuda()
+
                     # call the train_fn, to be defined 
                     # in the child classes. This function does the 
                     # training of the model for the current batch of examples
                     self.train_fn(image, label, contain_box, boxes,net_d,optim_d)
                 self.metric.end_time('train')
+                '''
             #validation
             if not self.opt.skip_validation:
                 self.metric.start_time('validation')
+                # from torch.autograd import Variable
+                if self.opt.get_saliency:
+                    saliency_results = np.zeros((1, 4))
+                    saliency_file = '/home/sci/elham/workspace/etl/saliency/IoUs_%s.npy' %self.opt.get_saliency
                 with torch.no_grad():
                     net_d.eval()
                     if self.opt.validate_iou:
                         for batch_index, batch_example in enumerate(val_dataloader_ann):
-                            image, label, contain_box, boxes, pixelated_boxes, mimic_label  = batch_example
+                            print('batch %d / %d' %(batch_index, len(val_dataloader_ann)))
+                            image, label, contain_box, boxes, pixelated_boxes, mimic_label = batch_example
                             image = image.cuda()
                             label = label.cuda()
                             contain_box = contain_box.cuda()
                             boxes = boxes.cuda()
-                            pixelated_boxes = pixelated_boxes.cuda()
-
+                            pixelated_boxes = pixelated_boxes.cuda() # 512 => eyetracking_dataset.get_dataset_et if get_saliency:
                             mimic_label = mimic_label.cuda()
-                            if batch_index%10==0:
-                                print(batch_index)
+                            # if batch_index%10==0:
+                            #     print(batch_index)
                             # call the validation_fn function, to be defined 
                             # in the child classes, that defines what to do
                             # during the validation loop
-                            self.validation_fn_ann(image, label, contain_box, boxes, pixelated_boxes, mimic_label, net_d)
+                            # self.validation_fn_ann(image, label, contain_box, boxes, pixelated_boxes, mimic_label, net_d) # **********************
+
+                        #     if self.opt.get_saliency and not os.path.exists(saliency_file):
+                        #             torch.set_grad_enabled(True) #*
+                        #             out_thr, s_thr, g_thr = .95, .5, .3
+                        #             all_salients = get_highlight(image, out_thr, self.opt.get_saliency) # out_thr: threshold on network output scores after sigmoid
+                        #             s_ious = saliency_IoU(all_salients, pixelated_boxes, boxes, label, s_thr, g_thr)
+                        #             saliency_results = torch.cat((saliency_results, s_ious), axis=0)
+                        # if self.opt.get_saliency and not os.path.exists(saliency_file):
+                        #     saliency_results = saliency_results[1:, ...]
+                        #     np.save(saliency_file, np.array(saliency_results))
+                        # if self.opt.get_saliency:
+                        #     saliency_ious = np.load(saliency_file)
+                        #     print(saliency_ious)
+
+                            if self.opt.get_saliency and not os.path.exists(saliency_file):
+                                    torch.set_grad_enabled(True) #*
+                                    all_idxs_salients = get_highlight(image, self.opt.get_saliency) # out_thr: threshold on network output scores after sigmoid
+                                    s_ncc = saliency_ncc(all_idxs_salients, pixelated_boxes, label) # batch_size x (0:prediction_correctness (0-1), 1:predicted_class, 2:most_similar_gaze_idx, 2:ncc)
+                                    saliency_results = np.concatenate((saliency_results, s_ncc), axis=0)
+                        if self.opt.get_saliency and not os.path.exists(saliency_file):
+                            saliency_results = saliency_results[1:, ...]
+                            np.save(saliency_file, np.array(saliency_results))
+                        if self.opt.get_saliency:
+                            saliency_nccs = np.load(saliency_file) # batch_size x (0:prediction_correctness (0-1), 1:predicted_class, 2:most_similar_gaze_idx, 2:ncc)
+                        if self.opt.get_saliency and self.opt.reprod_saliency_results:
+                            report_saliency_results(saliency_nccs)
+                            # for idx in [42, 235, 264, 27, 127, 172, 241, 142, 182, 156]:
+                            #     b_idx = idx // self.opt.batch_size
+                            #     sample_idx = idx % self.opt.batch_size
+                            #     print(b_idx, sample_idx)
+                        exit()
+
                     if self.opt.validate_auc:
                         for batch_index, batch_example in enumerate(val_dataloader_all):
                             image, label  = batch_example
@@ -121,7 +169,7 @@ class TrainingLoop():
             
             # get a dictionary containing the average metrics for this epoch, and writes all metrics to the log files
             average_dict = self.output.log_added_values(epoch_index, self.metric)
-            
+
             if not self.opt.skip_train:
                 if self.opt.use_lr_scheduler:
                     lr_scheduler_d.step()
@@ -130,12 +178,22 @@ class TrainingLoop():
                 # best model so far, and if it is, save it
                 this_validation_metric = average_dict[self.opt.metric_to_validate]
                 if self.opt.function_to_compare_validation_metric(this_validation_metric,last_best_validation_metric):
+                    torch.save(net_d.state_dict(), self.opt.save_path + 'best_epoch')
+                    last_best_validation_metric = this_validation_metric
+                
+                #save the model for the current epoch
+                torch.save(net_d.state_dict(), self.opt.save_path + 'last')
+                print('***************** Model has been saved *****************')
+
+                '''
+                this_validation_metric = average_dict[self.opt.metric_to_validate]
+                if self.opt.function_to_compare_validation_metric(this_validation_metric,last_best_validation_metric):
                     self.output.save_models(net_d, 'best_epoch')
                     last_best_validation_metric = this_validation_metric
                 
                 #save the model for the current epoch
                 self.output.save_models(net_d, str(epoch_index))
-
+                '''
 #class defining how training and validation for each batch is performed
 class SpecificTraining(TrainingLoop):
     def train_fn(self,image, label, contain_box, boxes,net_d,optim_d):
@@ -163,7 +221,7 @@ class SpecificTraining(TrainingLoop):
         original_model_mode = net_d.training
         prev_grad_enabled = torch.is_grad_enabled()
         
-        if self.opt.calculate_cam:
+        if self.opt.calculate_cam or self.opt.get_saliency:
             torch.set_grad_enabled(True)
         
         net_d.eval()
@@ -174,9 +232,9 @@ class SpecificTraining(TrainingLoop):
         if boxes.size(2)==512:
             out_map = torchvision.transforms.Resize(512, torchvision.transforms.InterpolationMode.NEAREST)(out_map)
         for threshold in self.opt.thresholds_iou:
-            iou = localization_score_fn(boxes, out_map,threshold)
+            iou = localization_score_fn(boxes, out_map, threshold)
             self.metric.add_iou(f'val_ellipse_iou_{threshold}', iou, label)
-        
+
         # calculating the image-level outputs for the model and adding them to the validation AUC calculation
         nonspatial_predictions = self.forward(d_x, self.normalize_fn)
         self.metric.add_score(label, nonspatial_predictions, 'val_rad')
@@ -205,13 +263,16 @@ class SpecificTraining(TrainingLoop):
         
         # restoring the state of the model and gradients before entering this method
         net_d.zero_grad()
-        torch.set_grad_enabled(prev_grad_enabled)
+        torch.set_grad_enabled(True)
+        # torch.set_grad_enabled(prev_grad_enabled)
         if original_model_mode:
             net_d.train()
     
     #validation for unannotated functions (mimic-cxr dataset)
     def validation_fn_all(self,image, label, net_d):
         d_x = net_d(image)
+        if self.opt.get_saliency:
+            return self.forward(d_x, self.normalize_fn)
         #adding output of model to calculate AUC
         self.metric.add_score(label, self.forward(d_x, self.normalize_fn), 'val_mimic_all')
 
@@ -222,9 +283,10 @@ def localization_score_fn(y_true, y_predicted, threshold):
     union = (torch.maximum(y_predicted,y_true)).view([y_true.size(0), y_true.size(1), -1]).sum(axis=2)
     iou = intersection/union
     # iou for images without ellipses is set to 0, and is not used for the calculation of the average iou
-    iou =  torch.nan_to_num(iou)
+    iou = torch.nan_to_num(iou)
     return iou
 
+# opt = opts.get_opt()
 def main():
     #get user options/configurations
     opt = opts.get_opt()
@@ -235,7 +297,9 @@ def main():
     output = outputs.Outputs(opt, opt.save_folder + '/' + opt.experiment + '_' + opt.timestamp)
     output.save_run_state(os.path.dirname(__file__))
     
-    from .get_together_dataset import get_together_dataset as get_dataloaders
+    # from mypackage.mymodule import as_int
+
+    from get_together_dataset import get_together_dataset as get_dataloaders
     
     #load class to store metrics and losses values
     metric = metrics.Metrics(opt.threshold_ior, opt.validate_auc)
@@ -248,7 +312,7 @@ def main():
     loader_val_all = get_dataloaders(split=opt.split_validation+ '_all',type_ = opt.dataset_type, use_et = opt.use_et, crop = (opt.use_center_crop), batch_size = opt.batch_size, use_data_aug = opt.use_data_augmentation, num_workers = opt.num_workers, percentage_annotated=0., percentage_unannotated=1., repeat_annotated = False, load_to_memory=opt.load_to_memory, data_aug_seed = opt.data_aug_seed, index_produce_val_image = opt.index_produce_val_image, grid_size = opt.grid_size, dataset_type_et = opt.dataset_type_et)
     
     #load the deep learning architecture for the critic and the generator
-    net_d = model.Thoracic(opt.grid_size, pretrained = opt.use_pretrained, calculate_cam = opt.calculate_cam, last_layer_index = opt.last_layer_index).cuda()
+    net_d = models.Thoracic(opt.grid_size, pretrained = opt.use_pretrained, calculate_cam = opt.calculate_cam, last_layer_index = opt.last_layer_index).cuda()
     if opt.load_checkpoint_d is not None:
         net_d.load_state_dict(torch.load(opt.load_checkpoint_d))
     #load the optimizer

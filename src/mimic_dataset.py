@@ -1,13 +1,13 @@
 # file defining how the mimic dataset is preprocessed
 import numpy as np
-from .utils_dataset import TransformsDataset, SeedingPytorchTransformSeveralElements, GrayToThree, ToNumpy
-from .utils_dataset import XRayResizerPadRound32, ToTensorMine, ToTensor1, get_count_positive_labels
+from utils_dataset import TransformsDataset, SeedingPytorchTransformSeveralElements, GrayToThree, ToNumpy
+from utils_dataset import XRayResizerPadRound32, ToTensorMine, ToTensor1, get_count_positive_labels
 from h5_dataset.h5_dataset import H5Dataset,change_np_type_fn
 import pandas as pd
 import torchvision.transforms as transforms
-from .mimic_object import MIMICCXRDataset
-from .global_paths import h5_path
-from .list_labels import list_labels
+from mimic_object import MIMICCXRDataset
+from global_paths import h5_path
+from list_labels import list_labels
 
 def get_train_val_dfs():
     train_df = pd.read_csv('./train_df.csv')

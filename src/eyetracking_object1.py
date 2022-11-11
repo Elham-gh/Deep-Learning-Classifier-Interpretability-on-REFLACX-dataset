@@ -99,7 +99,7 @@ class ETDataset(torch.utils.data.Dataset):
         
         #load chest x-ray and its report
         print(jpg_path + row_metadata['image'][36:-3] + 'jpg')
-        lkiujiou
+        # sfasfs
         img = imageio.imread(jpg_path + row_metadata['image'][36:-3] + 'jpg')
         # img = imageio.imread(pre_process_path(row_metadata['image']))
         assert(len(img.shape)==2)
