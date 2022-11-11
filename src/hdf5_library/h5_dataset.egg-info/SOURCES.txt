@@ -1,0 +1,9 @@
+setup.py
+h5_dataset/__init__.py
+h5_dataset/complex_example.py
+h5_dataset/h5_dataset.py
+h5_dataset.egg-info/PKG-INFO
+h5_dataset.egg-info/SOURCES.txt
+h5_dataset.egg-info/dependency_links.txt
+h5_dataset.egg-info/requires.txt
+h5_dataset.egg-info/top_level.txt

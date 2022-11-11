@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: h5-dataset
+Version: 0.2
+Summary: This library provides an easy way of using packaging almost any PyTorch dataset into an HDF5 file.
+Home-page: 
+Author: Ricardo Bigolin Lanfredi
+Author-email: ricardolanfredi@gmail.com
+License: MIT
+Requires-Python: >=3.8
