@@ -1,4 +1,5 @@
 # definitions of model architecture and losses
+from re import A
 import torch
 import torchvision
 import types
@@ -73,6 +74,8 @@ def p_box(out, box_label, normalize_fn, use_balancing):
     out = torch.sigmoid(out)
     # balancing provides the number of grid cells being multiplied to normalize_fn
     # such that the normalization range of the probabilities being multiplied is around the same
+    a = (normalize_fn(out)*box_label + (1-box_label)).view([out.size(0), out.size(1), -1]).prod(dim=2)*(normalize_fn(1-out)*(1-box_label) + (box_label)).view([out.size(0), out.size(1), -1]).prod(dim=2)
+    b = (normalize_fn(out) + (normalize_fn(1-out))).prod(dim=2)
     if use_balancing: 
         return (normalize_fn(out, box_label.view([out.size(0), out.size(1), -1]).sum(dim=2))*box_label + (1-box_label)).view([out.size(0), out.size(1), -1]).prod(dim=2)*(normalize_fn(1-out,(1-box_label).view([out.size(0), out.size(1), -1]).sum(dim=2))*(1-box_label) + (box_label)).view([out.size(0), out.size(1), -1]).prod(dim=2)
     else:
@@ -80,6 +83,8 @@ def p_box(out, box_label, normalize_fn, use_balancing):
 
 avgpool_pytorch = torch.nn.AdaptiveAvgPool2d((1,1))
 ce_pytorch = torch.nn.BCEWithLogitsLoss()
+MSE_pytorch = torch.nn.MSELoss()
+KL_pytorch = torch.nn.KLDivLoss(reduction='batchmean')
 
 def forward_inference_ce(out, normalize_fn):
     return torch.sigmoid(avgpool_pytorch(out).squeeze(3).squeeze(2))
@@ -116,15 +121,48 @@ class loss_fn_li(object):
             - ((1-contain_bbox)*labels*torch.log(fi+1e-20)).sum() \
             - ((1-contain_bbox)*(1-labels)*torch.log(1-fi+1e-20)).sum() 
 
+class loss_ncc(object):
+    def __init__(self):
+        pass
+    
+    def __call__(self, et, sal): # [1, 10, 16, 16]
+        self.loss_s = lambda s, v: ((s-s.mean())*(v-v.mean())).mean() / v.std() / s.std() if v.sum() and s.sum() else 1 #* 
+        # inds = torch.nonzero((et.sum(axis=(2, 3)) > 0.))
+        total_sal_loss = 0
+        # if there is an eye-tracking data for at least one channel 1 - self.loss_s else 0
+        for ch in range(10):
+            if et[0, ch, ...].sum() and sal[0, ch, ...].sum():
+                # print(1 - self.loss_s(et[0, ch, ...], sal[0, ch, ...]), sal[0, ch, ...].sum())
+                total_sal_loss += (1 - self.loss_s(et[0, ch, ...], sal[0, ch, ...]))  # if sal[0, ind[1], ...].sum() else 1.
+                # print(1 - self.loss_s(et[0, ch, ...], sal[0, ch, ...]))
+        return total_sal_loss
+
+class loss_nMSE(object):
+    def __init__(self):
+        self.normalize = lambda s: (s - s.mean()) / s.std()
+        # pass
+    
+    def __call__(self, et, sal): # [1, 10, 16, 16]
+        total_sal_loss = 0
+        # if there is an eye-tracking data for at least one channel 1 - self.loss_s else 0
+        for ch in range(10):
+            if et[0, ch, ...].sum() and sal[0, ch, ...].sum():
+                total_sal_loss += MSE_pytorch(self.normalize(sal[0, ch, ...]), self.normalize(et[0, ch, ...]))
+        return total_sal_loss
+
+
 # full network used for the experiments
 class Thoracic(torch.nn.Module):
-    def __init__(self, grid_size = 8, pretrained = True, calculate_cam = False, last_layer_index= [4]):
+    def __init__(self, grid_size=8, pretrained=True, calculate_cam=False, last_layer_index=[4]):
         super().__init__()
         self.preprocessing = ClassifierInputs()
         self.get_cnn_features = torchvision.models.resnet50(pretrained=pretrained)
         self.gradients = None
         self.activations = None
         self.calculate_cam = calculate_cam
+        import opts
+        self.opt = opts.get_opt()
+
         
         def _forward_impl(self, x):
             x = self.conv1(x)
@@ -165,7 +203,7 @@ class Thoracic(torch.nn.Module):
         self.patch_slicing = PatchSlicing(grid_size)
         self.recognition_network = RecognitionNetwork(last_layer_index)
     
-    def forward(self,x):
+    def forward(self,x, box_label=None, normalize_fn=None, return_saliency=False, split='train'):
         x = self.preprocessing(x)
         x = self.get_cnn_features(x)
         x = self.patch_slicing(x)
@@ -175,6 +213,11 @@ class Thoracic(torch.nn.Module):
             h = activations.register_hook(self.activations_hook)
         else:
             x = self.recognition_network(x, False)
+        # if self.opt.get_saliency: # validation
+        #     x = torch.amax(torch.sigmoid(x), dim=(2,3)) # [1, 10, 16, 16]
+        if self.opt.get_saliency and return_saliency: # train
+            # x = torch.amax(torch.sigmoid(x), dim=(2,3)) 
+            x = p_box(x, box_label, normalize_fn, False) if split == 'train' else forward_inference(x, normalize_fn)# x [1, 10, 16, 16], box [1, 10, 16, 16]
         return x
     
     #methods used for gradcam calculation
