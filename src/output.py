@@ -1,6 +1,6 @@
 # class that manages the saving of logs to the output folder.
 # logs are in the form of a txt file, a csv file, a tnsorboard log.
-# this class also saves the current source code from the src folder,
+# this class also saves the current source code from the opt_src folder,
 # and the configurations used to run the specific training script
 from tensorboardX import SummaryWriter
 import logging
@@ -48,9 +48,9 @@ class Outputs():
     
     #save the source files used to run this experiment
     def save_run_state(self, py_folder_to_save):
-        if not os.path.exists('{:}/src/'.format(self.output_folder)):
-            os.mkdir('{:}/src/'.format(self.output_folder))
-        [shutil.copy(filename, ('{:}/src/').format(self.output_folder)) for filename in glob.glob(py_folder_to_save + '/*.py')]
+        if not os.path.exists('{:}/opt_src/'.format(self.output_folder)):
+            os.mkdir('{:}/opt_src/'.format(self.output_folder))
+        [shutil.copy(filename, ('{:}/opt_src/').format(self.output_folder)) for filename in glob.glob(py_folder_to_save + '/*.py')]
         self.save_command()
     
     #saves the command line command used to run these experiments
