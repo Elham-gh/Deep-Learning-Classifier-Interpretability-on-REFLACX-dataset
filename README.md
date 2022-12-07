@@ -1,11 +1,11 @@
 ## Classifier Interpretability
 To train the network on REFLACX dataset implement the following command in 'src/' folder. At this stage the network is being trained on a single batch of data.
 
-	'python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a' 
+	python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a
 
 To train with NCC/MSE loss please add --sal_loss_type=ncc/--sal_loss_type=ncc to command line and set saliency loss coefficient by --sal_loss=.9 (you can train with different coefficients). Thus, the command to train with MSE loss, lambda_cls=0.005, lambda_slc=0.995 use the command line below:
 
-	'python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a --sal_loss=.995 --sal_loss_type=mse'
+	python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a --sal_loss=.995 --sal_loss_type=mse
 
 The guid to implementation set up is explained in following.
 
