@@ -22,7 +22,7 @@ def str2bool(v):
 def get_opt():
     parser = argparse.ArgumentParser(description='')
     
-    parser.add_argument('--save_folder', type=str, nargs='?', default='./runs',
+    parser.add_argument('--save_folder', type=str, nargs='?', default='./batch_MSE_runs/etf_sal/', #*
                                 help='If you want to save files and outputs in a folder other than \'./runs\', change this variable.')
     parser.add_argument('--gpus', type=str, nargs='?', default=None,
                                 help='Set the gpus to use, using CUDA_VISIBLE_DEVICES syntax.')
@@ -40,7 +40,7 @@ def get_opt():
                                     help='Use \'val\' to use the validation set for calculating scores every epoch. Use \'test\' for using the test set during scoring.')
     parser.add_argument('--load_checkpoint_d', type=str, nargs='?', default=None,
                                     help='If you want to start from a previously trained classifier, set a filepath locating a model checkpoint that you want to load')
-    parser.add_argument('--nepochs', type=int, nargs='?', default=60,
+    parser.add_argument('--nepochs', type=int, nargs='?', default=1200,
                                 help='Number of epochs to run training and validation')
     parser.add_argument('--loss', type=str, nargs='?', default='li',
                                 help='Changes the type of loss for training. The options are: ce, or li')
@@ -58,7 +58,7 @@ def get_opt():
                                 help='If True, data augmentation is used during training.')
     parser.add_argument('--optimizer', type=str, nargs='?', default='adamams',
                                 help='adamw or adamams, to choos the tye of optimizer.')
-    parser.add_argument('--batch_size', type=int, nargs='?', default=32, #*20
+    parser.add_argument('--batch_size', type=int, nargs='?', default=1, #32, #*20
                                 help='Batch size for training and validation.')
     parser.add_argument('--num_workers', type=int, nargs='?', default=5,
                                 help='Number of threads created for faster data loading.')
@@ -100,21 +100,27 @@ def get_opt():
                             help='If true, pytorch\'s automatic mixed precison is used for training')
     parser.add_argument('--dataset_type_et', type=str, nargs='?', default='h5',
                             help='Type of file to save preprocessed dataset to. Options: h5, zarr, png, mmap')
-    parser.add_argument('--save_path', type=str, nargs='?', default='/home/sci/elham/workspace/etl/ckpts/',
-                            help='path to save the best and last checkpoints')
     parser.add_argument('--get_saliency', type=str, nargs='?', default=None,
                             help='if we want saliency map')
     parser.add_argument('--reprod_saliency_results', type=Boolean, nargs='?', default=False,
                             help='if we want to reproduce results')
+    parser.add_argument('--sal_loss', type=Boolean, nargs='?', default=True,
+                            help='True if we want to encourage model to have gradients similar to heatmaps in training loss')
+    parser.add_argument('--out_thr', type=float, nargs='?', default=.75,
+                            help='threshold on output logits to decide about predicted classes')
+    parser.add_argument('--save_path', type=str, nargs='?', default='./ckpts/no_sal/', #*
+                            help='path to save the best and last checkpoints')
 
     args = parser.parse_args()
-    
+# python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a --out_thr=.9
+# python -m train --gpus=0 --experiment=et_data_model --use_et=True --get_saliency=grad --dataset_type=a --out_thr=.9 --load_checkpoint_d=/home/sci/elham/workspace/etl/ckpts/ann_no_sal/best_epoch
+
     # if only one threshold for the eye-tracking heatmaps was given, make it the same threshold for all labels
     if len(args.threshold_box_label)==1:
         args.threshold_box_label = args.threshold_box_label*10
     
     args.thresholds_iou = thresholds
-    if args.skip_validation:
+    if True: # args.skip_validation: # TODO change metric
         args.metric_to_validate = 'auc_average_train' # if no valiadtion is performed, use the training AUC for deciding the best epoch
     else:
         args.metric_to_validate = 'auc_average_val_mimic_all' # if valiadtion is performed, use the validation AUC for deciding the best epoch
