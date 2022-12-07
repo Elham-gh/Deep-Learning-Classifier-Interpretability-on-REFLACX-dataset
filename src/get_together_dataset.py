@@ -46,7 +46,7 @@ class JoinDatasetsAnotatedUnannotated(Dataset):
             # return 0 to indicate that this image does not contains annotation
             # element 3:
             # return an array of zeros with the same shape of the ellipse annotations
-            return one_case[0], one_case[1], torch.tensor(0.),  torch.zeros(10,self.grid_size,self.grid_size) 
+            return one_case[0], one_case[1], torch.tensor(0.), torch.zeros(10,self.grid_size,self.grid_size), torch.zeros(10, 512, 512)
         # if image indexed with index is from the annotated dataset
         if self.index_mapping[index,0] == 1:
             one_case = self.dataset_list[1][self.index_mapping[index,1]]
@@ -59,7 +59,7 @@ class JoinDatasetsAnotatedUnannotated(Dataset):
             # element 4:
             # if self.use_et is True, return the eye-tracking heatmap as annotation ground-truth (index 2)
             # if self.use_et is False, use ellipses as annotation ground-truth (index 3)
-            return  one_case[0], one_case[1 if self.use_et else 4], torch.tensor(1.), one_case[2 if self.use_et else 3]
+            return  one_case[0], one_case[1 if self.use_et else 4], torch.tensor(1.), one_case[2], one_case[3]
 
 # dataset used to join annotated and unannotated datasets while transforming
 #  examples from the annotated dataset into unannotated cases
