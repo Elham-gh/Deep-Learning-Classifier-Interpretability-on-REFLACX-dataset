@@ -28,8 +28,9 @@ class Metrics():
     # loss is an example of a value that can use this function
     # DO NOT use this function for models predictions (used for calculating AUC) and for iou values
     def add_value(self, key, value):
-        value = value.detach().cpu()
-        self.values[key].append( value)
+        if type(value) is not int and type(value) is not float:
+            value = value.detach().cpu() 
+        self.values[key].append(value)
     
     def calculate_average(self):
         self.average = {}
