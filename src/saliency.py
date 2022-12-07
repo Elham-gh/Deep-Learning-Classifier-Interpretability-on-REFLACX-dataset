@@ -1,17 +1,24 @@
+from this import d
 from unittest.util import sorted_list_difference
 from xmlrpc.client import Boolean
 import torch
+from torch import nn 
 import numpy as np
 import torchvision.transforms as transforms # import ToPILImage
 from torch.autograd import Variable
 from matplotlib import pyplot as plt
 import matplotlib as mpl
+from captum.attr import IntegratedGradients, Occlusion, LayerGradCam, LayerAttribution
+from captum.attr import visualization as viz
 
 import opts
 opt = opts.get_opt()
 from models import Thoracic
 
 out_path = '/home/sci/elham/workspace/etl/saliency_outs/'
+gray = lambda rgb, ax : (rgb * torch.tensor([0.299 , 0.587, 0.114]).reshape(ax, 3, 1, 1).cuda()).sum(axis=ax).reshape(rgb.shape[-2], rgb.shape[-1])
+torch.cuda.empty_cache()
+
 
 
 def get_highlight(images, method): # model, [32, 3, 512, 512], [32, 10, 512, 512], [32, 10, 16=>512, 16=>512], grad
@@ -22,17 +29,37 @@ def get_highlight(images, method): # model, [32, 3, 512, 512], [32, 10, 512, 512
         all_salients = []
         
         for b_idx in range(images.shape[0]): # batch_size is bigger than image shape in the last batch
-            im = images[b_idx, ...].reshape(1, images.shape[1], images.shape[2], images.shape[3]).clone().cuda()
-            im.requires_grad_()
-            d_x = torch.sigmoid(net_d(im)) # [1, 10, 16, 16]
-            d_x = torch.amax(d_x, dim=(2,3)) # [1, 10][0]=[10]
-            pred_idx = torch.argmax(d_x, dim=1) # [1]
-            d_x = torch.amax(d_x, dim=1) # [1] single prediction w. maximum score
-            grad_1, = torch.autograd.grad(d_x, im, create_graph=True)#, allow_unused=True)
-            saliency = torch.amax(grad_1.data.abs(), dim=1)[0, ...] # [512, 512]
-            all_salients.append((int(pred_idx.item()), saliency.detach().cpu().numpy()))
-            net_d.zero_grad()
-            # print('********************************', int(pred_idx.item()), 'pred', d_x, saliency.detach().cpu().numpy().sum())
+                im = images[b_idx, ...].reshape(1, images.shape[1], images.shape[2], images.shape[3]).clone().cuda()
+                im.requires_grad_()
+                # d_x, pred_idx = net_d(im)
+                d_x, pred_idx = torch.topk(net_d(im), 1)
+                # print(1, d_x, pred_idx)
+                # kuyio
+                # d_x = torch.sigmoid(net_d(im)) # [1, 10, 16, 16]
+                # d_x = torch.amax(d_x, dim=(2,3)) # [1, 10][0]=[10]
+                # pred_idx = torch.argmax(d_x, dim=1) # [1]
+                # d_x = torch.amax(d_x, dim=1) # [1] single prediction w. maximum score
+                if method == 'integrad':
+                        pred_idx.squeeze_()
+                        integrated_gradients = IntegratedGradients(net_d)
+                        saliency = integrated_gradients.attribute(im, target=pred_idx, n_steps=100)
+                        saliency = gray(saliency, 1)
+                        all_salients.append((pred_idx.item(), saliency.detach().cpu().numpy()))
+
+                if method == 'grad':
+                        grad_1, = torch.autograd.grad(d_x, im, create_graph=True)#, allow_unused=True) # [1, 3, 512, 512]
+                        saliency = torch.amax(grad_1.data.abs(), dim=1)[0, ...] # [512, 512] # TODO basically grayscale; convert to grayscale before/after gradient
+                        all_salients.append((int(pred_idx.item()), saliency.detach().cpu().numpy()))
+
+                elif method == 'gradcam':
+                        grad_1, = torch.autograd.grad(d_x, im, create_graph=True)#, allow_unused=True) # [1, 3, 512, 512]
+                        GAP = nn.AvgPool2d(grad_1.size()[2:])
+                        alpha = GAP(grad_1.data.abs()).reshape((3)) # TODO remove abs()
+                        saliency = gray(im[0, ...] * alpha.unsqueeze(dim=-1).unsqueeze(dim=-1))
+                        saliency = nn.ReLU()(saliency)
+                        all_salients.append((int(pred_idx.item()), saliency.detach().cpu().numpy()))
+                
+                net_d.zero_grad()
 
         return all_salients # [(prediction_index, saliency)] x bs
 
@@ -190,4 +217,10 @@ def get_highlight1(images, out_thr, method): # multi-label classification; argum
             all_salients.append(salients)
         return all_salients
 
+
+def resize_box(boxes, grid_size):
+   strd = boxes.shape[-1] // grid_size 
+   return torch.nn.functional.max_pool2d(boxes, kernel_size=strd, stride=strd)
+
+   
 
